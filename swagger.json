@@ -1,0 +1,71 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "RAG Node Ollama API",
+    "description": "API for HR assistant using RAG with Ollama"
+  },
+  "host": "localhost:3000",
+  "basePath": "/",
+  "tags": [
+    {
+      "name": "HR Assistant",
+      "description": "Endpoints for HR assistant queries"
+    }
+  ],
+  "schemes": [
+    "http"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/ask-hr": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "question": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Question": {
+      "type": "object",
+      "properties": {
+        "question": {
+          "type": "string",
+          "example": "What is the company policy on remote work?"
+        }
+      }
+    },
+    "Answer": {
+      "type": "object",
+      "properties": {
+        "answer": {
+          "type": "string",
+          "example": "The company allows flexible remote work arrangements."
+        }
+      }
+    }
+  }
+}
