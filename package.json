@@ -1,12 +1,16 @@
 {
-  "name": "ls",
+  "name": "rag-node-ollama",
   "version": "1.0.0",
-  "description": "",
+  "description": "RAG Node.js + Ollama HR Assistant",
   "type": "module",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "swagger": "node swagger.js"
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "embed": "node scripts/generateEmbeddings.js",
+    "test": "node --test",
+    "legacy:server": "node legacy/server.js",
+    "legacy:embed": "node legacy/index.js"
   },
   "repository": {
     "type": "git",
@@ -19,11 +23,19 @@
   },
   "homepage": "https://github.com/Wainercrb/rag-node-ollama#readme",
   "dependencies": {
+    "@qdrant/js-client-rest": "^1.16.2",
     "axios": "^1.13.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^5.2.1",
-    "fs": "^0.0.1-security",
+    "helmet": "^8.0.0"
+  },
+  "devDependencies": {
     "swagger-autogen": "^2.23.7",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
