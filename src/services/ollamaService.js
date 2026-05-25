@@ -5,7 +5,6 @@ import { logger } from '../utils/logger.js';
 
 const ollamaClient = axios.create({
   baseURL: config.ollama.url,
-  timeout: config.ollama.timeout,
 });
 
 export const ollamaService = {
@@ -16,7 +15,7 @@ export const ollamaService = {
       const response = await ollamaClient.post('/api/embed', {
         model: config.ollama.embeddingModel,
         input: text,
-      });
+      }, { timeout: config.ollama.embeddingTimeout });
 
       return response.data.embeddings[0];
     } catch (error) {
@@ -39,7 +38,7 @@ export const ollamaService = {
         model: config.ollama.model,
         prompt,
         stream: false,
-      });
+      }, { timeout: config.ollama.generateTimeout });
 
       return response.data.response;
     } catch (error) {

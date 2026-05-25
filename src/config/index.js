@@ -9,7 +9,8 @@ export const config = {
     url: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
     model: process.env.OLLAMA_MODEL || 'llama3',
     embeddingModel: process.env.EMBEDDING_MODEL || 'nomic-embed-text',
-    timeout: parseInt(process.env.OLLAMA_TIMEOUT) || 30000,
+    embeddingTimeout: parseInt(process.env.OLLAMA_EMBEDDING_TIMEOUT) || 60000, // 1 min
+    generateTimeout: parseInt(process.env.OLLAMA_GENERATE_TIMEOUT) || 300000, // 5 min
   },
   
   qdrant: {

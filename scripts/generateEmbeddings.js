@@ -3,6 +3,7 @@ import path from 'path';
 import axios from 'axios';
 import dotenv from 'dotenv';
 import { QdrantClient } from '@qdrant/js-client-rest';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 dotenv.config();
 
@@ -16,7 +17,61 @@ const CHUNK_OVERLAP = 50;
 const BATCH_SIZE = 50; // Vectors per Qdrant upsert
 const CONCURRENT_EMBEDDINGS = 5; // Parallel embedding requests
 
-const HANDBOOK_PATH = path.join(process.cwd(), 'handbook.txt');
+// Support multiple file types
+const DOCUMENTS_DIR = path.join(process.cwd(), 'documents');
+const SUPPORTED_EXTENSIONS = ['.txt', '.pdf', '.md'];
+
+// Extract text from PDF using pdfjs-dist
+async function extractPdfText(filePath) {
+  const data = new Uint8Array(fs.readFileSync(filePath));
+  const pdf = await getDocument({ data, useSystemFonts: true }).promise;
+  
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(' ');
+    fullText += pageText + '\n\n';
+  }
+  
+  return fullText;
+}
+
+// Extract text from different file types
+async function extractText(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  
+  switch (ext) {
+    case '.pdf':
+      return await extractPdfText(filePath);
+    
+    case '.txt':
+    case '.md':
+      return fs.readFileSync(filePath, 'utf-8');
+    
+    default:
+      throw new Error(`Unsupported file type: ${ext}`);
+  }
+}
+
+// Get all supported files from documents directory or single file
+function getDocumentFiles() {
+  // Check for documents directory first
+  if (fs.existsSync(DOCUMENTS_DIR)) {
+    const files = fs.readdirSync(DOCUMENTS_DIR)
+      .filter(f => SUPPORTED_EXTENSIONS.includes(path.extname(f).toLowerCase()))
+      .map(f => path.join(DOCUMENTS_DIR, f));
+    
+    if (files.length > 0) return files;
+  }
+  
+  // Fallback to single file (legacy support)
+  const legacyFiles = ['handbook.pdf', 'handbook.txt', 'handbook.md']
+    .map(f => path.join(process.cwd(), f))
+    .filter(f => fs.existsSync(f));
+  
+  return legacyFiles;
+}
 
 // Initialize Qdrant client
 const qdrant = new QdrantClient({ url: QDRANT_URL });
@@ -131,17 +186,26 @@ async function generateEmbeddingsBatch(chunks, startIdx = 0, onProgress) {
 async function main() {
   console.log('\n🚀 RAG Embedding Generator with Qdrant\n');
   console.log('━'.repeat(50));
-  console.log(`📁 Source: ${HANDBOOK_PATH}`);
   console.log(`🤖 Model: ${EMBEDDING_MODEL}`);
   console.log(`📦 Chunk size: ${CHUNK_SIZE} chars`);
   console.log(`🗄️  Qdrant: ${QDRANT_URL}`);
   console.log(`📚 Collection: ${COLLECTION_NAME}`);
+  console.log(`📄 Supported: ${SUPPORTED_EXTENSIONS.join(', ')}`);
   console.log('━'.repeat(50) + '\n');
 
-  if (!fs.existsSync(HANDBOOK_PATH)) {
-    console.error('❌ handbook.txt not found!');
+  // Find documents
+  const documentFiles = getDocumentFiles();
+  
+  if (documentFiles.length === 0) {
+    console.error('❌ No documents found!');
+    console.error('   Place files in ./documents/ folder or root directory');
+    console.error(`   Supported formats: ${SUPPORTED_EXTENSIONS.join(', ')}`);
     process.exit(1);
   }
+
+  console.log(`📁 Found ${documentFiles.length} document(s):`);
+  documentFiles.forEach(f => console.log(`   - ${path.basename(f)}`));
+  console.log();
 
   // Check Qdrant connection
   try {
@@ -152,15 +216,35 @@ async function main() {
     process.exit(1);
   }
 
-  // Read and chunk text
-  console.log('📖 Reading document...');
-  const text = fs.readFileSync(HANDBOOK_PATH, 'utf-8');
-  const fileSizeMB = (Buffer.byteLength(text, 'utf-8') / (1024 * 1024)).toFixed(2);
-  console.log(`   Size: ${fileSizeMB} MB`);
+  // Read and extract text from all documents
+  console.log('📖 Reading documents...');
+  let allText = '';
+  
+  for (const filePath of documentFiles) {
+    const fileName = path.basename(filePath);
+    process.stdout.write(`   Processing ${fileName}...`);
+    
+    try {
+      const text = await extractText(filePath);
+      allText += text + '\n\n';
+      console.log(' ✓');
+    } catch (error) {
+      console.log(` ✗ (${error.message})`);
+    }
+  }
+  
+  const fileSizeMB = (Buffer.byteLength(allText, 'utf-8') / (1024 * 1024)).toFixed(2);
+  console.log(`\n   Total text size: ${fileSizeMB} MB`);
   
   console.log('✂️  Chunking text...');
-  const chunks = chunkText(text);
+  const chunks = chunkText(allText);
   console.log(`   Generated ${chunks.length} chunks\n`);
+
+  if (chunks.length === 0) {
+    console.error('❌ No text extracted from documents!');
+    console.error('   Check that your files contain readable text.');
+    process.exit(1);
+  }
 
   const estimatedMinutes = Math.ceil((chunks.length / CONCURRENT_EMBEDDINGS) * 0.5 / 60);
   console.log(`⏱️  Estimated time: ~${estimatedMinutes} minutes\n`);
